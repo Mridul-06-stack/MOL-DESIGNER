@@ -17,24 +17,24 @@ graph TD
     classDef bio fill:#e91e63,stroke:#000,stroke-width:2px,color:#fff;
 
     subgraph Frontend [React+Vite UI Application]
-        UI[Glassmorphic React Dashboard]:::react
-        Viewer[3Dmol.js Molecular Visualizer]:::react
+        UI["Glassmorphic React Dashboard"]:::react
+        Viewer["3Dmol.js Molecular Visualizer"]:::react
     end
 
     subgraph Backend [Python FastAPI Server]
-        API[POST /evolve (Server-Sent Events)]:::fastAPI
-        MolAPI[GET /molblock (3D Coordinates)]:::fastAPI
+        API["POST /evolve (Server-Sent Events)"]:::fastAPI
+        MolAPI["GET /molblock (3D Coordinates)"]:::fastAPI
     end
 
     subgraph Core [MolDesigner Intelligent Core]
-        Gen[Island-Model Genetic Generator]:::ai
-        Mutate((Structural Mutator\n& Crossover)):::ai
+        Gen["Island-Model Genetic Generator"]:::ai
+        Mutate(("Structural Mutator\n& Crossover")):::ai
         
-        Dock[Docker Interface]:::bio
-        Vina[AutoDock Vina / Meeko]:::bio
-        RDKit[RDKit Fallback Scoring]:::bio
+        Dock["Docker Interface"]:::bio
+        Vina["AutoDock Vina / Meeko"]:::bio
+        RDKit["RDKit Fallback Scoring"]:::bio
         
-        Scanner[Red-Team Escape Scanner]:::bio
+        Scanner["Red-Team Escape Scanner"]:::bio
     end
 
     %% Flow Dynamics
