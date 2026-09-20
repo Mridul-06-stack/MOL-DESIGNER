@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "moldesigner"
+version = "0.1.0"
+description = "Resistance-aware molecule design with red-team escape loop"
+requires-python = ">=3.12"
+dependencies = [
+    "rdkit",
+    "numpy",
+    "scipy",
+    "meeko>=0.8",
+    "gemmi",
+    "vina",
+    "pdbfixer",
+    "openmm",
+    "fastapi",
+    "uvicorn[standard]",
+    "websockets",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "pytest-cov"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
