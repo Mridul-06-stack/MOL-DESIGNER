@@ -360,7 +360,7 @@ export default function App() {
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
     link.href = url
-    link.setAttribute("download", `moldesigner_top_candidates_gen${generations.length}.csv`)
+    link.setAttribute("download", `alchemist_top_candidates_gen${generations.length}.csv`)
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -377,7 +377,7 @@ export default function App() {
       const url = URL.createObjectURL(blob)
       const link = document.createElement("a")
       link.href = url
-      link.setAttribute("download", `candidate_conformer.sdf`)
+      link.setAttribute("download", `alchemist_candidate_conformer.sdf`)
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -424,7 +424,7 @@ export default function App() {
               <line x1="9.5" y1="10" x2="5" y2="5"/>
               <line x1="14.5" y1="14" x2="19" y2="19"/>
             </svg>
-            <h1>MolDesigner</h1>
+            <h1>Alchemist</h1>
             <span className="version-tag">v0.1.0</span>
           </div>
           <p className="header-subtitle">

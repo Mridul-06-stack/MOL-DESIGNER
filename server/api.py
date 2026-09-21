@@ -16,7 +16,7 @@ from moldesigner.generator import evolve_islands, evolve
 from moldesigner.docking import load_docker
 from moldesigner.scanner import ClinicalEGFRScanner, MockScanner
 
-app = FastAPI(title="MolDesigner API")
+app = FastAPI(title="Alchemist API")
 
 app.add_middleware(
     CORSMiddleware,

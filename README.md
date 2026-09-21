@@ -1,120 +1,145 @@
-# MolDesigner: Adversarial AI Drug Discovery 🧬
+# Alchemist: Adversarial AI Drug Discovery Platform
 
-MolDesigner is an advanced, closed-loop Artificial Intelligence drug discovery platform built to programmatically evolve molecular compounds capable of circumventing biological tumor resistance (such as the lung cancer EGFR mutations).
+**Alchemist** is a closed-loop Artificial Intelligence drug discovery platform engineered to programmatically co-evolve small-molecule therapeutics capable of anticipating and overcoming clinical tumor drug resistance (specifically focused on non-small cell lung cancer EGFR mutations).
 
-By combining an island-model continuous genetic algorithm (GA) with an automated "red-team" protein mutation simulator, MolDesigner acts as a continuous self-playing game engine against cancer resistance.
+By combining an **island-model genetic algorithm (White Team)** with an **automated oncology resistance scanner (Red Team)**, Alchemist acts as an adversarial self-playing engine: as lead compounds achieve high binding affinity, the system injects authentic clinical resistance mutations into the docking ensemble, forcing the generative engine to synthesize molecules that bind the entire mutational spectrum simultaneously.
 
 ---
 
-## 🛠 Architecture Flow & Block Diagram
+## System Architecture
 
 ```mermaid
 graph TD
-    %% Define Styles
-    classDef react fill:#00d8ff,stroke:#000,stroke-width:2px,color:#000;
-    classDef fastAPI fill:#009688,stroke:#000,stroke-width:2px,color:#fff;
-    classDef ai fill:#673ab7,stroke:#000,stroke-width:2px,color:#fff;
-    classDef bio fill:#e91e63,stroke:#000,stroke-width:2px,color:#fff;
+    classDef react fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
+    classDef fastAPI fill:#0f172a,stroke:#10b981,stroke-width:2px,color:#f8fafc;
+    classDef whiteTeam fill:#0f172a,stroke:#818cf8,stroke-width:2px,color:#f8fafc;
+    classDef redTeam fill:#0f172a,stroke:#f43f5e,stroke-width:2px,color:#f8fafc;
 
-    subgraph Frontend [React+Vite UI Application]
-        UI["Glassmorphic React Dashboard"]:::react
-        Viewer["3Dmol.js Molecular Visualizer"]:::react
+    subgraph Frontend ["Frontend UI (React + Vite)"]
+        UI["Alchemist Glassmorphic Dashboard"]:::react
+        Trajectory["SVG Trajectory Chart"]:::react
+        Viewer["3Dmol.js Conformer Visualizer"]:::react
+        Leaderboard["Pareto Leaderboard & CSV/SDF Export"]:::react
     end
 
-    subgraph Backend [Python FastAPI Server]
-        API["POST /evolve (Server-Sent Events)"]:::fastAPI
-        MolAPI["GET /molblock (3D Coordinates)"]:::fastAPI
+    subgraph Backend ["API Engine (FastAPI)"]
+        API["POST /api/evolve (SSE Stream)"]:::fastAPI
+        MolAPI["GET /api/molblock (3D Coordinates)"]:::fastAPI
     end
 
-    subgraph Core [MolDesigner Intelligent Core]
-        Gen["Island-Model Genetic Generator"]:::ai
-        Mutate(("Structural Mutator\n& Crossover")):::ai
-        
-        Dock["Docker Interface"]:::bio
-        Vina["AutoDock Vina / Meeko"]:::bio
-        RDKit["RDKit Fallback Scoring"]:::bio
-        
-        Scanner["Red-Team Escape Scanner"]:::bio
+    subgraph WhiteTeam ["White Team (Generative Chemistry)"]
+        GA["Island-Model Genetic Generator"]:::whiteTeam
+        BRICS["BRICS Fragmentation & Recombination"]:::whiteTeam
+        Scorer["Composite Fitness Scorer (Dock + QED + SA)"]:::whiteTeam
     end
 
-    %% Flow Dynamics
-    UI -- "Config (Islands, Target Panel)" --> API
-    UI -- "Fetch 3D Mapping" --> MolAPI
-    
-    API -- "Initiate & Stream Gen Events" --> Gen
-    
-    Gen -- "Spawn Chemical Variants" --> Mutate
-    Mutate -- "Produces SMILES Array" --> Dock
-    
-    Dock -- "Evaluates Binding Energies" --> Vina
-    Dock -- "Fallback Fast Evaluation" --> RDKit
-    
-    Vina -. "Returns Binding Severities" .-> Gen
-    RDKit -. "Returns Multi-variant Scores" .-> Gen
-    
-    %% Adversarial Loop
-    Gen -- "Sends Best Surviving Candidate" --> Scanner
-    Scanner -- "Identifies Weakness & Injects New Protein Mutation" --> Dock
-    
-    Gen -- "Yields Live SSE Stream" --> UI
+    subgraph RedTeam ["Red Team (Adversarial Oncology)"]
+        Scanner["Clinical EGFR Scanner"]:::redTeam
+        Mechanisms["Biophysical Mechanism Engine (Steric, Covalent, Polar)"]:::redTeam
+    end
+
+    UI -- "Config & Seed SMILES" --> API
+    API -- "Initiate Island Evolution" --> GA
+    GA -- "Generate Chemical Offspring" --> BRICS
+    BRICS -- "Evaluate Ensemble" --> Scorer
+    Scorer -- "Docking & Biophysical Penalties" --> Mechanisms
+
+    %% Adversarial Injections
+    Scorer -- "Lead Candidate Crosses Potency Threshold" --> Scanner
+    Scanner -- "Injects Resistance Variant (T790M, C797S, L718Q)" --> Scorer
+    Scanner -- "Emits Clinical Alert & Action Guidance" --> API
+
+    API -- "Live Generation Events & Alerts" --> UI
+    UI -- "Fetch 3D Conformer" --> MolAPI
 ```
 
 ---
 
-## 🚀 The AI adversarial Loop
+## Core Capabilities
 
-MolDesigner implements a Continuous Evolution paradigm:
-1. **The Generator (White Team):** Rapidly iterates molecular geometries via fragment-swapping and bioisostere crossover, identifying a molecule capable of neutralizing modern protein mutations (e.g. wild-type and L858R combined).
-2. **The Docker (Physics Engine):** Ensures all surviving molecules adhere to multi-variant structural constraints without falling victim to localized optimums.
-3. **The Simulator (Red Team):** Ingests the White Team's best surviving drug candidate, mathematically identifying a resistance loophole, and permanently injecting a new synthetic protein-mutant target into the Docker configuration to forcibly disrupt the drug's efficacy and restart the cycle.
+### 1. Closed-Loop Adversarial Co-Evolution
+Unlike static AI drug design platforms that target a single crystallized conformation, Alchemist models tumor biology as an active adversarial opponent:
+- **White Team (Generative Chemistry)**: Evolves valid chemical structures by construction using RDKit and BRICS fragmentation, optimizing composite fitness across multi-target ensembles.
+- **Red Team (Tumor Resistance Engine)**: Continuously evaluates lead candidate potency. When a compound achieves nanomolar affinity, the Red Team injects real clinical mutations to test the drug's resilience.
+
+### 2. Real Clinical EGFR Resistance Hotspots
+Alchemist features biophysical mechanism modeling for non-small cell lung cancer (NSCLC) mutations:
+
+| Target Variant | Locus & Role | Biophysical Mechanism | Counter-Strategy (Generator Action) |
+| :--- | :--- | :--- | :--- |
+| **EGFR WT** | Catalytic Domain | Baseline ATP-binding pocket. | Dual H-bond hinge interaction. |
+| **L858R** | Exon 21 Driver | Activating kinase mutation. | High-affinity binding to open kinase conformation. |
+| **T790M** | Exon 20 Gatekeeper | Bulky methionine ($+54\text{ \AA}^3$) creates severe steric clash with 1st/2nd Gen quinazolines. | Shift to compact core ($\text{MW} < 410\text{ Da}$) or flexible hinge-breaker linkers. |
+| **C797S** | Exon 20 Covalent Null | Abolishes nucleophilic thiol, destroying the covalent anchor of 3rd-Gen inhibitors (Osimertinib). | Transition from covalent reliance to high-affinity reversible binding. |
+| **L718Q** | Exon 18/19 P-Loop | Hydrophobic-to-polar shift introduces electrostatic repulsion against lipophilic grease. | Reduce $\text{LogP} < 3.2$ and incorporate polar hydrogen-bond acceptors. |
+
+### 3. Real-Time Interactive Web Dashboard
+- **Generational Fitness Trajectory**: Live SVG chart streaming best and mean population fitness.
+- **Active Target Panel**: Real-time status indicators tracking the expanding target ensemble (`WT`, `L858R`, `T790M`, `C797S`, `L718Q`).
+- **Interactive 3D Conformer**: Embedded WebGL 3Dmol.js viewer with rotation, zoom, and atom picking.
+- **Per-Variant Affinity Profile**: Live multi-target kcal/mol binding energy meters.
+- **Export Capabilities**: One-click download of Pareto-optimal candidates in both **CSV** and **.SDF** formats.
 
 ---
 
-## 💻 Requirements & Installation
+## Quickstart Guide
 
-MolDesigner fundamentally breaks down into a heavy numerical backend and a visual frontend layer.
+### Prerequisites
+- **Python**: 3.10+
+- **Node.js**: 18+ and npm
 
-### 1. Python Backend Dependencies
-
-You must install standard high-capacity cheminformatics processing.
-**Tooling Requirements:** Python 3.10+, pip
+### 1. Backend Setup
 
 ```bash
-# Core Chemistry AI dependencies
-pip install rdkit-pypi scipy numpy pytest
+# Clone the repository
+git clone https://github.com/Mridul-06-stack/MOL-DESIGNER.git
+cd MOL-DESIGNER
 
-# Standalone Server requirements
-pip install fastapi uvicorn pydantic
+# Create and activate virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
 
-# (Optional: Only if employing physical binding instead of surrogate models)
-pip install vina meeko
+# Install dependencies
+pip install -e .
+pip install rdkit fastapi uvicorn websockets pytest
+
+# Run automated tests
+pytest tests/ -v
 ```
 
-### 2. React Frontend Dependencies
+### 2. Start the FastAPI Engine
 
-The UX drives real-time analysis through Server-Sent Event streaming.
-**Tooling Requirements:** Node.js (v18+), npm
+```bash
+source .venv/bin/activate
+uvicorn server.api:app --host 127.0.0.1 --port 8000 --reload
+```
+The API server will be available at `http://127.0.0.1:8000`.
 
+### 3. Launch the React Dashboard
+
+In a separate terminal:
 ```bash
 cd ui
 npm install
+npm run dev
+```
+Open `http://127.0.0.1:5173` in your browser.
+
+---
+
+## Automated Test Suite
+
+Alchemist includes a comprehensive pytest test suite covering docking, genetic algorithms, and clinical scanner mechanisms:
+
+```bash
+pytest tests/test_scanner.py tests/test_docking.py -v
+```
+
+```
+============================== 13 passed in 0.34s ==============================
 ```
 
 ---
 
-## ⚡ Execution Commands
-
-MolDesigner is designed with full multi-stage capabilities. Start both modules concurrently to use the unified console.
-
-#### 1. Boot up the API Engine
-```bash
-uvicorn server.api:app --host 0.0.0.0 --port 8000
-```
-This initializes the FastAPI sub-layer waiting for commands from the dashboard.
-
-#### 2. Launch the Control UI
-```bash
-cd ui
-npm run dev
-```
-Navigate to `http://localhost:5173` to access the visual real-time generator and 3D molecular renderer!
+## License
+MIT License. Developed for research and educational purposes in computational oncology and generative chemistry.
