@@ -156,6 +156,21 @@ def mutate(mol: Chem.Mol, rng: random.Random) -> Chem.Mol | None:
     return None
 
 
+_BRICS_CACHE: dict[str, set[str]] = {}
+
+def _decompose_cached(mol: Chem.Mol) -> set[str]:
+    smi = Chem.MolToSmiles(mol)
+    if smi in _BRICS_CACHE:
+        return _BRICS_CACHE[smi]
+    try:
+        frags = BRICS.BRICSDecompose(mol)
+    except Exception:
+        frags = set()
+    if len(_BRICS_CACHE) > 500:
+        _BRICS_CACHE.clear()
+    _BRICS_CACHE[smi] = frags
+    return frags
+
 def crossover(
     parent1: Chem.Mol, parent2: Chem.Mol, rng: random.Random,
 ) -> Chem.Mol | None:
@@ -167,8 +182,8 @@ def crossover(
     seed Python global random from our RNG for reproducibility.
     """
     try:
-        frags1 = BRICS.BRICSDecompose(parent1)
-        frags2 = BRICS.BRICSDecompose(parent2)
+        frags1 = _decompose_cached(parent1)
+        frags2 = _decompose_cached(parent2)
     except Exception:
         return None
 
@@ -194,7 +209,7 @@ def crossover(
 
     try:
         builder = BRICS.BRICSBuild(frag_mols, onlyCompleteMols=True, maxDepth=2)
-        candidates = list(islice(builder, 12))
+        candidates = list(islice(builder, 8))
     except Exception:
         return None
 
@@ -566,7 +581,7 @@ def evolve_islands(
             attempts = 0
             cx_fails = 0
             
-            while new_count < pop_size_per_island and attempts < pop_size_per_island * 5:
+            while new_count < pop_size_per_island and attempts < pop_size_per_island * 3:
                 attempts += 1
                 
                 # Tournament k=3
@@ -578,7 +593,7 @@ def evolve_islands(
                 m2 = mol_lookup.get(p2.smiles)
                 if m1 is None or m2 is None: continue
                 
-                if island_rng.random() < crossover_frac and cx_fails < 5:
+                if island_rng.random() < crossover_frac and cx_fails < 3:
                     child = crossover(m1, m2, island_rng)
                     if child is None:
                         cx_fails += 1

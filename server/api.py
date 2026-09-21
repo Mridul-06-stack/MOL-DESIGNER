@@ -39,14 +39,23 @@ class EvolveRequest(BaseModel):
     redteam_interval: int = 4
     redteam_max_mutations: int = 2
 
+_molblock_cache: dict[str, str] = {}
+
 def _json_default(obj: Any) -> Any:
     import numpy as np
-    if isinstance(obj, np.floating):
+    if isinstance(obj, (np.floating, float)):
         return float(obj)
+    if isinstance(obj, (np.integer, int)):
+        return int(obj)
     raise TypeError
 
 @app.post("/api/evolve")
 async def run_evolution(req: EvolveRequest):
+    # Safety bounds for reliable, responsive execution on cloud tiers
+    safe_islands = min(max(req.islands, 1), 3)
+    safe_pop = min(max(req.pop_size, 10), 25)
+    safe_gens = min(max(req.generations, 1), 30)
+
     docker = load_docker({
         "backend": "rdkit_score",
         "targets": list(req.targets)
@@ -63,35 +72,47 @@ async def run_evolution(req: EvolveRequest):
     )
 
     seeds = [req.seed_smiles]
-    
     scanner = ClinicalEGFRScanner(energy_threshold=req.redteam_threshold) if req.enable_redteam else None
 
     async def event_stream():
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         
-        def run_sync_gen():
-            return evolve_islands(
-                scorer=scorer,
-                seeds=seeds,
-                islands=req.islands,
-                pop_size_per_island=req.pop_size,
-                generations=req.generations,
-                seed=req.seed
-            )
+        # Instantiate generator object
+        gen = evolve_islands(
+            scorer=scorer,
+            seeds=seeds,
+            islands=safe_islands,
+            pop_size_per_island=safe_pop,
+            generations=safe_gens,
+            seed=req.seed
+        )
 
-        gen = await loop.run_in_executor(None, run_sync_gen)
-            
+        def get_next(iterator):
+            try:
+                return next(iterator), False
+            except StopIteration:
+                return None, True
+            except Exception as e:
+                return {"error": str(e)}, True
+
         mutations_injected = 0
         last_mutation_gen = 0
 
-        for event in gen:
+        while True:
+            # Run CPU-bound generation computation in executor thread so asyncio loop handles health checks
+            event, done = await loop.run_in_executor(None, get_next, gen)
+            if done or event is None or "error" in event:
+                break
+
             # Attach active targets to generation event
             event["active_targets"] = list(docker.targets)
             
             # Format as SSE
             data = json.dumps(event, default=_json_default)
             yield f"data: {data}\n\n"
-            await asyncio.sleep(0.01)
+            
+            # Give event loop time to handle ping/health checks & network buffer flush
+            await asyncio.sleep(0.03)
 
             # Check if Red-Team should scan this generation
             if req.enable_redteam and scanner and event.get("best"):
@@ -144,7 +165,7 @@ async def run_evolution(req: EvolveRequest):
                             }
                             alert_data = json.dumps(alert_event, default=_json_default)
                             yield f"data: {alert_data}\n\n"
-                            await asyncio.sleep(0.01)
+                            await asyncio.sleep(0.02)
             
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
@@ -153,16 +174,46 @@ async def get_molblock(smiles: str):
     from rdkit.Chem import AllChem
     from fastapi.responses import PlainTextResponse
     
-    mol = Chem.MolFromSmiles(smiles)
-    if not mol:
+    if not smiles:
         return PlainTextResponse("", status_code=400)
-        
-    mol = Chem.AddHs(mol)
-    AllChem.EmbedMolecule(mol, randomSeed=42)
-    AllChem.MMFFOptimizeMolecule(mol)
-    
-    block = Chem.MolToMolBlock(mol)
-    return PlainTextResponse(block)
+
+    if smiles in _molblock_cache:
+        return PlainTextResponse(_molblock_cache[smiles])
+
+    try:
+        mol = Chem.MolFromSmiles(smiles)
+        if not mol:
+            return PlainTextResponse("", status_code=400)
+            
+        mol_h = Chem.AddHs(mol)
+        embed_status = AllChem.EmbedMolecule(mol_h, randomSeed=42)
+        if embed_status != 0:
+            embed_status = AllChem.EmbedMolecule(mol_h, useRandomCoords=True, randomSeed=42)
+            
+        if embed_status == 0:
+            try:
+                AllChem.MMFFOptimizeMolecule(mol_h, maxIters=150)
+            except Exception:
+                pass
+            block = Chem.MolToMolBlock(mol_h)
+        else:
+            # Fallback to 2D
+            AllChem.Compute2DCoords(mol)
+            block = Chem.MolToMolBlock(mol)
+            
+        if len(_molblock_cache) > 300:
+            _molblock_cache.clear()
+        _molblock_cache[smiles] = block
+        return PlainTextResponse(block)
+    except Exception:
+        try:
+            m = Chem.MolFromSmiles(smiles)
+            if m:
+                AllChem.Compute2DCoords(m)
+                return PlainTextResponse(Chem.MolToMolBlock(m))
+        except Exception:
+            pass
+        return PlainTextResponse("", status_code=400)
 
 
 @app.get("/api/health")

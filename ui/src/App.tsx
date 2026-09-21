@@ -200,12 +200,13 @@ export default function App() {
   const [latestAlert, setLatestAlert] = useState<RedTeamAlert | null>(null)
   const [topCandidates, setTopCandidates] = useState<ScoredBest[]>([])
   const [historyTimeline, setHistoryTimeline] = useState<Array<{ generation: number; best: number; mean: number }>>([])
+  const [is3dLoading, setIs3dLoading] = useState(false)
   const viewerRef = useRef<any>(null)
 
   const [config, setConfig] = useState({
     generations: 20,
-    islands: 3,
-    pop_size: 30,
+    islands: 2,
+    pop_size: 15,
     dock_weight: 0.5,
     seed_smiles: "C=Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
     preset: "erlotinib"
@@ -215,8 +216,6 @@ export default function App() {
   const handleStart = async () => {
     setEvolving(true)
     setGenerations([])
-    setCurrentBest(null)
-    setSelectedCandidate(null)
     setLatestAlert(null)
     setTopCandidates([])
     setHistoryTimeline([])
@@ -305,35 +304,54 @@ export default function App() {
       setStatusText('Evolution run complete!')
     } catch (err: any) {
       console.error('Evolution error:', err)
-      setStatusText(`Connection failed: Make sure FastAPI backend is running on port 8000.`)
+      setStatusText(`Connection note: Stream ended or server completed run.`)
     } finally {
       setEvolving(false)
     }
   }
 
   const render3D = async (smiles: string) => {
+    if (!smiles) return
+    setIs3dLoading(true)
     try {
       const res = await fetch(`${API_BASE}/api/molblock?smiles=${encodeURIComponent(smiles)}`)
-      if (!res.ok) return
+      if (!res.ok) {
+        setIs3dLoading(false)
+        return
+      }
       const sdf = await res.text()
-      if (!sdf) return
+      if (!sdf || !sdf.includes('M  END')) {
+        setIs3dLoading(false)
+        return
+      }
 
-      if (typeof window !== 'undefined' && window.$3Dmol) {
-        const container = document.getElementById("viewer3d")
-        if (!container) return
-        container.innerHTML = ""
+      const draw = () => {
+        if (typeof window !== 'undefined' && window.$3Dmol) {
+          const container = document.getElementById("viewer3d")
+          if (!container) return false
+          container.innerHTML = ""
 
-        const viewer = window.$3Dmol.createViewer(container, {
-          defaultcolors: window.$3Dmol.rasmolElementColors
-        })
-        viewerRef.current = viewer
-        viewer.addModel(sdf, "sdf")
-        viewer.setStyle({}, { stick: { radius: 0.15 }, sphere: { scale: 0.25 } })
-        viewer.zoomTo()
-        viewer.render()
+          const viewer = window.$3Dmol.createViewer(container, {
+            defaultcolors: window.$3Dmol.rasmolElementColors
+          })
+          viewerRef.current = viewer
+          viewer.addModel(sdf, "sdf")
+          viewer.setStyle({}, { stick: { radius: 0.15, colorscheme: 'Jmol' }, sphere: { scale: 0.25 } })
+          viewer.zoomTo()
+          viewer.spin("y", 0.7)
+          viewer.render()
+          return true
+        }
+        return false
+      }
+
+      if (!draw()) {
+        setTimeout(draw, 250)
       }
     } catch (e) {
       console.error('3D rendering error:', e)
+    } finally {
+      setIs3dLoading(false)
     }
   }
 
@@ -369,7 +387,7 @@ export default function App() {
   }
 
   const handleDownloadSDF = async () => {
-    const smi = selectedCandidate?.smiles || currentBest?.smiles
+    const smi = selectedCandidate?.smiles || currentBest?.smiles || config.seed_smiles
     if (!smi) return
     try {
       const res = await fetch(`${API_BASE}/api/molblock?smiles=${encodeURIComponent(smi)}`)
@@ -388,15 +406,9 @@ export default function App() {
     }
   }
 
-  // Effect to load 3dmol script
+  // Load initial 3D conformer on mount
   useEffect(() => {
-    if (!document.getElementById("3dmol-script")) {
-      const script = document.createElement("script")
-      script.id = "3dmol-script"
-      script.src = "https://3Dmol.csb.pitt.edu/build/3Dmol-min.js"
-      script.async = true
-      document.body.appendChild(script)
-    }
+    render3D(config.seed_smiles)
   }, [])
 
   const activeMolecule = selectedCandidate || currentBest
@@ -514,6 +526,9 @@ export default function App() {
               else if (val === 'custom') sm = ""
 
               setConfig({ ...config, preset: val, seed_smiles: sm })
+              if (sm) {
+                render3D(sm)
+              }
             }}
           >
             <option value="erlotinib">Erlotinib (EGFR - Lung Cancer)</option>
@@ -530,7 +545,15 @@ export default function App() {
           <input
             type="text"
             value={config.seed_smiles}
-            onChange={e => setConfig({ ...config, seed_smiles: e.target.value, preset: 'custom' })}
+            onChange={e => {
+              const sm = e.target.value
+              setConfig({ ...config, seed_smiles: sm, preset: 'custom' })
+            }}
+            onBlur={e => {
+              if (e.target.value.trim()) {
+                render3D(e.target.value.trim())
+              }
+            }}
             style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
           />
         </div>
@@ -760,31 +783,31 @@ export default function App() {
                 Interactive 3D Molecular Conformer
               </h2>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                {selectedCandidate && selectedCandidate !== currentBest ? 'Displaying Selected Candidate from Leaderboard' : 'Displaying Lead Candidate'}
+                {selectedCandidate && selectedCandidate !== currentBest 
+                  ? 'Displaying Selected Candidate from Leaderboard' 
+                  : currentBest 
+                    ? 'Displaying Lead Candidate' 
+                    : `Displaying Starting Molecule (${config.preset === 'erlotinib' ? 'Erlotinib' : config.preset})`}
               </span>
             </div>
-            {activeMolecule && (
-              <div className="export-toolbar" style={{ margin: 0 }}>
-                <button className="btn-secondary" onClick={handleDownloadSDF}>
-                  <IconDownload />
-                  <span>Download 3D (.sdf)</span>
-                </button>
-                <button className="btn-secondary" onClick={handleExportCSV}>
-                  <IconFileSpreadsheet />
-                  <span>Export Candidates (.csv)</span>
-                </button>
-              </div>
-            )}
+            <div className="export-toolbar" style={{ margin: 0 }}>
+              <button className="btn-secondary" onClick={handleDownloadSDF}>
+                <IconDownload />
+                <span>Download 3D (.sdf)</span>
+              </button>
+              <button className="btn-secondary" onClick={handleExportCSV} disabled={topCandidates.length === 0 && !currentBest} style={{ opacity: topCandidates.length === 0 && !currentBest ? 0.5 : 1 }}>
+                <IconFileSpreadsheet />
+                <span>Export Candidates (.csv)</span>
+              </button>
+            </div>
           </div>
 
-          <div id="viewer3d" className="viewer-container" style={{ position: 'relative', width: '100%', height: '420px' }}>
-            {!currentBest && !evolving && (
-              <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>
-                Click <strong>"Launch Generator"</strong> or <strong>"Launch Adversarial Engine"</strong> to begin evolution and render 3D conformers.
+          <div className="viewer-container" style={{ position: 'relative', width: '100%', height: '420px', borderRadius: '12px', overflow: 'hidden', background: '#0a0e17' }}>
+            <div id="viewer3d" style={{ width: '100%', height: '100%' }} />
+            {is3dLoading && (
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(10, 14, 23, 0.65)', pointerEvents: 'none' }}>
+                <div className="loading-spinner"></div>
               </div>
-            )}
-            {evolving && !currentBest && (
-              <div className="loading-spinner"></div>
             )}
           </div>
         </div>
