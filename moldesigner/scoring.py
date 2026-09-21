@@ -170,6 +170,11 @@ class Scorer:
         self._cache[smi] = entry
         return entry
 
+    def clear_dock_cache(self) -> None:
+        """Clear cached docking results when the target panel changes."""
+        for entry in self._cache.values():
+            entry["dock"] = None
+
     # ── Batch docking ──────────────────────────────────────────────────
 
     def _dock_batch(self, mols_and_smiles: list[tuple[Chem.Mol, str]]) -> None:
@@ -183,8 +188,10 @@ class Scorer:
             entry = self._cache.get(smi)
             if entry is None:
                 continue
-            # Skip if already docked
-            if entry["dock"] is not None:
+            # Skip if already docked against all current targets
+            if entry["dock"] is not None and (
+                self.docker is None or len(entry["dock"]) >= len(self.docker.targets)
+            ):
                 continue
             # Pre-filter on Lipinski violations
             if entry["props"]["lipinski_violations"] > self.dock_prefilter_max_violations:

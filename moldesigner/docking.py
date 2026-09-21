@@ -140,6 +140,11 @@ class RDKitScoreDocker:
     def targets(self) -> list[str]:
         return self._targets
 
+    def add_target(self, target: str) -> None:
+        """Dynamically register a new variant into the docking target panel."""
+        if target not in self._targets:
+            self._targets.append(target)
+
     def dock_many(self, smiles_list: list[str]) -> list[dict[str, float] | None]:
         results: list[dict[str, float] | None] = []
         for smi in smiles_list:

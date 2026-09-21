@@ -1,2 +1,5 @@
-"""Escape scanner – in-silico mutation + escape scan. (Phase 5 stub)"""
-# TODO: Implement in Phase 5
+"""Escape scanner – in-silico mutation + escape scan."""
+
+from .scanner import EscapeScanner, MockScanner, ClinicalEGFRScanner, ClinicalMutation, CLINICAL_EGFR_MUTATIONS
+
+__all__ = ["EscapeScanner", "MockScanner", "ClinicalEGFRScanner", "ClinicalMutation", "CLINICAL_EGFR_MUTATIONS"]
