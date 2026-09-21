@@ -44,3 +44,47 @@ def test_redteam_variant_docking_penalty():
     # should be roughly identical on the fallback calculation.
     import math
     assert math.isclose(aspirin_res["WT"], aspirin_res[variant], abs_tol=1.5)
+
+
+def test_clinical_scanner_progression():
+    from moldesigner.scanner import ClinicalEGFRScanner, CLINICAL_EGFR_MUTATIONS
+    scanner = ClinicalEGFRScanner(energy_threshold=-6.0)
+
+    # 1. First scan yields Gatekeeper T790M
+    mut1 = scanner.scan(ERLOTINIB, -8.0, active_targets=["WT", "L858R"])
+    assert mut1 == "T790M"
+    info1 = scanner.get_mutation_info("T790M")
+    assert info1 is not None
+    assert "Gatekeeper" in info1.name
+    assert "Steric Clash" in info1.mechanism
+
+    # 2. Second scan yields C797S
+    mut2 = scanner.scan(ERLOTINIB, -8.0, active_targets=["WT", "L858R", "T790M"])
+    assert mut2 == "C797S"
+
+    # 3. Third scan yields L718Q
+    mut3 = scanner.scan(ERLOTINIB, -8.0, active_targets=["WT", "L858R", "T790M", "C797S"])
+    assert mut3 == "L718Q"
+
+    # 4. Weak molecule (> threshold) returns None
+    assert scanner.scan(ERLOTINIB, -3.0, active_targets=["WT", "L858R"]) is None
+
+
+def test_clinical_docking_mechanisms():
+    """Verify that clinical mutations correctly apply biophysical mechanisms."""
+    docker = RDKitScoreDocker(targets=["WT", "L858R", "T790M", "C797S"])
+
+    osimertinib = "C=CC(=O)Nc1cc(Nc2nccc(-c3cn(C)c4ccccc34)n2)c(OC)cc1N(C)CCN(C)C"
+    compact_breaker = "CNS(=O)(=O)c1cccc(-c2ccncc2N2CCOCC2)c1"
+
+    results = docker.dock_many([osimertinib, compact_breaker])
+    osim_res, breaker_res = results
+
+    # Osimertinib has covalent acrylamide: binds WT and L858R, but suffers on C797S
+    assert osim_res["WT"] < -6.0
+    assert osim_res["C797S"] > osim_res["WT"] + 2.0  # significant drop on C797S
+
+    # Compact breaker has sulfonamide/morpholine and no covalent reliance:
+    # binds stably across both WT and T790M
+    assert breaker_res["WT"] < -7.5
+    assert breaker_res["T790M"] < -7.5

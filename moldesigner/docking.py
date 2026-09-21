@@ -164,9 +164,21 @@ class RDKitScoreDocker:
                 sa_term = ((10.0 - props.get("sa", 5.0)) / 9.0) * 5.0
                 base_energy = -(qed_term + sa_term) # Range approx -10 to 0
                 
+                has_acrylamide = mol.HasSubstructMatch(Chem.MolFromSmarts("C=CC(=O)N"))
+                has_vinyl_sulfone = mol.HasSubstructMatch(Chem.MolFromSmarts("C=CS(=O)(=O)"))
+                is_covalent = has_acrylamide or has_vinyl_sulfone
+                
+                has_sulfonamide = mol.HasSubstructMatch(Chem.MolFromSmarts("S(=O)(=O)N"))
+                has_morpholine = mol.HasSubstructMatch(Chem.MolFromSmarts("N1CCOCC1"))
+                has_piperazine = mol.HasSubstructMatch(Chem.MolFromSmarts("N1CCNCC1"))
+                has_t790m_breaker = has_sulfonamide or has_morpholine or has_piperazine or props.get("mw", 500) < 410
+
                 mol_energies = {}
                 for tgt in self.targets:
-                    # Check if this is a Red-Team target (Escape scanner generated)
+                    seed = hash(f"{smi}_{tgt}")
+                    noise = random.Random(seed).uniform(-0.3, 0.3)
+
+                    # 1. Backwards-compatible synthetic Red-Team target
                     if tgt.startswith("RESIST_SIM_"):
                         parts = tgt.split("_", 3)
                         if len(parts) >= 4:
@@ -179,16 +191,56 @@ class RDKitScoreDocker:
                                 fp_target = mfp_gen.GetFingerprint(target_mol)
                                 fp_mol = mfp_gen.GetFingerprint(mol)
                                 sim = DataStructs.TanimotoSimilarity(fp_target, fp_mol)
-                                
                                 if sim > 0.6:
-                                    # Heavy penalty for structure matched by scanner
-                                    mol_energies[tgt] = -3.0 + random.Random(hash(f"{smi}_{tgt}")).uniform(-0.5, 0.5)
+                                    mol_energies[tgt] = -3.0 + random.Random(seed).uniform(-0.5, 0.5)
                                     continue
 
-                    # Regular base calculation
-                    seed = hash(f"{smi}_{tgt}")
-                    noise = random.Random(seed).uniform(-1.0, 1.0)
-                    mol_energies[tgt] = base_energy + noise
+                    # 2. Clinical Variant Biophysical Modeling
+                    if tgt == "WT":
+                        # Covalent bonus if warhead can react with Cys797
+                        cov_bonus = -1.0 if is_covalent else 0.0
+                        mol_energies[tgt] = base_energy + cov_bonus + noise
+
+                    elif tgt == "L858R":
+                        # Activating oncogenic driver - active site is thermodynamically primed
+                        cov_bonus = -1.2 if is_covalent else 0.0
+                        mol_energies[tgt] = base_energy - 0.4 + cov_bonus + noise
+
+                    elif tgt == "T790M":
+                        # Gatekeeper mutation: Met790 introduces a +54 Å³ steric clash.
+                        # Compact cores or flexible hinge-binders bypass clash.
+                        cov_bonus = -1.0 if is_covalent else 0.0
+                        if has_t790m_breaker:
+                            mol_energies[tgt] = base_energy - 0.1 + cov_bonus + noise
+                        else:
+                            # Bulky rigid scaffold clashes with Met790 sidechain
+                            mol_energies[tgt] = base_energy + 3.2 + cov_bonus + noise
+
+                    elif tgt == "C797S":
+                        # Covalent loss: Cys797 -> Ser797 abolishes the reactive nucleophile.
+                        if is_covalent:
+                            mol_energies[tgt] = base_energy + 2.5 + noise
+                        else:
+                            mol_energies[tgt] = base_energy + 0.2 + noise
+
+                    elif tgt == "L718Q":
+                        # P-loop hydrophobic to polar shift: penalizes lipophilic grease
+                        logp = props.get("logp", 3.0)
+                        if logp > 3.2:
+                            mol_energies[tgt] = base_energy + (logp - 3.2) * 1.5 + noise
+                        else:
+                            mol_energies[tgt] = base_energy - 0.2 + noise
+
+                    elif tgt == "G724S":
+                        # ATP pocket structural cleft deformation
+                        rotb = props.get("rotb", 4)
+                        if rotb < 3:
+                            mol_energies[tgt] = base_energy + 1.8 + noise
+                        else:
+                            mol_energies[tgt] = base_energy + noise
+
+                    else:
+                        mol_energies[tgt] = base_energy + noise
                     
                 results.append(mol_energies)
             except Exception:

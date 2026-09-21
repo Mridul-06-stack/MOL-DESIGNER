@@ -3,7 +3,7 @@ __version__ = "0.1.0"
 
 from .docking import VinaDocker, RDKitScoreDocker, load_docker
 from .validation import redock, enrichment_summary, RedockReport
-from .scanner import EscapeScanner, MockScanner
+from .scanner import EscapeScanner, MockScanner, ClinicalEGFRScanner, ClinicalMutation, CLINICAL_EGFR_MUTATIONS
 from .server import run_server
 
 __all__ = [
@@ -15,6 +15,9 @@ __all__ = [
     "RedockReport",
     "EscapeScanner",
     "MockScanner",
+    "ClinicalEGFRScanner",
+    "ClinicalMutation",
+    "CLINICAL_EGFR_MUTATIONS",
     "run_server",
 ]
 

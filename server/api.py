@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from moldesigner.scoring import Scorer, Weights
 from moldesigner.generator import evolve_islands, evolve
 from moldesigner.docking import load_docker
-from moldesigner.scanner import MockScanner
+from moldesigner.scanner import ClinicalEGFRScanner, MockScanner
 
 app = FastAPI(title="MolDesigner API")
 
@@ -58,33 +58,28 @@ async def run_evolution(req: EvolveRequest):
             qed=0.2, 
             sa=0.3, 
             sim=0.0
-        ), 
+        ),
         docker=docker
     )
 
-    scanner = MockScanner() if req.enable_redteam else None
+    seeds = [req.seed_smiles]
+    
+    scanner = ClinicalEGFRScanner(energy_threshold=req.redteam_threshold) if req.enable_redteam else None
 
-    # We use a synchronous generator underlying this, so for FastAPI to stream smoothly,
-    # we yield events, but wrap them in SSE format.
-    def event_stream():
-        if req.islands > 1:
-            pop_per = max(5, req.pop_size // req.islands)
-            gen = evolve_islands(
+    async def event_stream():
+        loop = asyncio.get_event_loop()
+        
+        def run_sync_gen():
+            return evolve_islands(
                 scorer=scorer,
-                seeds=[req.seed_smiles],
+                seeds=seeds,
                 islands=req.islands,
-                pop_size_per_island=pop_per,
+                pop_size_per_island=req.pop_size,
                 generations=req.generations,
                 seed=req.seed
             )
-        else:
-            gen = evolve(
-                scorer=scorer,
-                seeds=[req.seed_smiles],
-                pop_size=req.pop_size,
-                generations=req.generations,
-                seed=req.seed
-            )
+
+        gen = await loop.run_in_executor(None, run_sync_gen)
             
         mutations_injected = 0
         last_mutation_gen = 0
@@ -96,6 +91,7 @@ async def run_evolution(req: EvolveRequest):
             # Format as SSE
             data = json.dumps(event, default=_json_default)
             yield f"data: {data}\n\n"
+            await asyncio.sleep(0.01)
 
             # Check if Red-Team should scan this generation
             if req.enable_redteam and scanner and event.get("best"):
@@ -110,7 +106,11 @@ async def run_evolution(req: EvolveRequest):
                 ):
                     dock_worst = best_mol.get("raw", {}).get("dock_worst")
                     if dock_worst is not None and dock_worst <= req.redteam_threshold:
-                        new_variant = scanner.scan(best_mol["smiles"], dock_worst)
+                        new_variant = scanner.scan(
+                            best_mol["smiles"], 
+                            dock_worst, 
+                            active_targets=list(docker.targets)
+                        )
                         
                         if new_variant and new_variant not in docker.targets:
                             mutations_injected += 1
@@ -120,22 +120,31 @@ async def run_evolution(req: EvolveRequest):
                             else:
                                 docker._targets.append(new_variant)
 
-                            # Extract short clean name for UI
-                            parts = new_variant.split("_", 3)
-                            short_name = f"RESIST_{parts[2]}" if len(parts) >= 3 else new_variant[:15]
+                            mut_info = scanner.get_mutation_info(new_variant)
+                            mut_name = mut_info.name if mut_info else new_variant
+                            mechanism = mut_info.mechanism if mut_info else "Biophysical steric / charge resistance"
+                            context = mut_info.clinical_context if mut_info else "Clinical acquired resistance"
+                            guidance = mut_info.adaptation_guidance if mut_info else "Adapt core scaffold"
+                            exon = mut_info.exon if mut_info else "Exon 20"
                             
                             alert_event = {
                                 "type": "redteam_alert",
                                 "generation": gen_idx,
                                 "mutation": new_variant,
-                                "mutation_short": short_name,
+                                "mutation_short": new_variant,
+                                "mutation_name": mut_name,
+                                "exon": exon,
+                                "mechanism": mechanism,
+                                "clinical_context": context,
+                                "adaptation_guidance": guidance,
                                 "trigger_smiles": best_mol["smiles"],
                                 "affinity_before": dock_worst,
                                 "active_targets": list(docker.targets),
-                                "message": f"Resistance loophole detected! Tumor adapted with escape mutation {short_name}."
+                                "message": f"Clinical resistance escape: {mut_name} ({exon}). {mechanism}."
                             }
                             alert_data = json.dumps(alert_event, default=_json_default)
                             yield f"data: {alert_data}\n\n"
+                            await asyncio.sleep(0.01)
             
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 

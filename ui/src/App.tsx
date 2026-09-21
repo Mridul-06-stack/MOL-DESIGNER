@@ -50,6 +50,11 @@ interface RedTeamAlert {
   generation: number
   mutation: string
   mutation_short: string
+  mutation_name?: string
+  exon?: string
+  mechanism?: string
+  clinical_context?: string
+  adaptation_guidance?: string
   trigger_smiles: string
   affinity_before: number
   active_targets: string[]
@@ -94,6 +99,15 @@ const IconPlay = () => (
     <polygon points="5 3 19 12 5 21 5 3"/>
   </svg>
 )
+
+const CLINICAL_TARGET_META: Record<string, { label: string; badgeClass: string; indClass: string; role: string }> = {
+  WT: { label: 'EGFR WT', badgeClass: 'target-pill-wt', indClass: 'indicator-wt', role: 'Native Kinase Domain' },
+  L858R: { label: 'L858R', badgeClass: 'target-pill-driver', indClass: 'indicator-driver', role: 'Exon 21 Driver Mutation' },
+  T790M: { label: 'T790M', badgeClass: 'target-pill-gatekeeper', indClass: 'indicator-gatekeeper', role: 'Gatekeeper Steric Clash' },
+  C797S: { label: 'C797S', badgeClass: 'target-pill-covalent', indClass: 'indicator-covalent', role: 'Covalent Null Resistance' },
+  L718Q: { label: 'L718Q', badgeClass: 'target-pill-ploop', indClass: 'indicator-ploop', role: 'P-Loop Polar Shift' },
+  G724S: { label: 'G724S', badgeClass: 'target-pill-ploop', indClass: 'indicator-ploop', role: 'ATP Loop Conformation' },
+}
 
 function FitnessTrajectoryChart({ history }: { history: Array<{ generation: number; best: number; mean: number }> }) {
   if (history.length < 2) {
@@ -204,7 +218,7 @@ export default function App() {
     setLatestAlert(null)
     setTopCandidates([])
     setHistoryTimeline([])
-    const initialTargets = enableRedTeam ? ["WT", "L858R"] : ["WT", "L858R", "T790M_C797S"]
+    const initialTargets = enableRedTeam ? ["WT", "L858R"] : ["WT", "L858R", "T790M", "C797S"]
     setActiveTargets(initialTargets)
     setStatusText('Connecting to evolution engine...')
 
@@ -217,9 +231,9 @@ export default function App() {
           ...config, 
           targets: initialTargets,
           enable_redteam: enableRedTeam,
-          redteam_threshold: -8.0,
-          redteam_interval: 3,
-          redteam_max_mutations: 2
+          redteam_threshold: -7.5,
+          redteam_interval: 2,
+          redteam_max_mutations: 3
         })
       })
 
@@ -457,20 +471,25 @@ export default function App() {
           </label>
           <div className="targets-container">
             {activeTargets.map(tgt => {
+              const meta = CLINICAL_TARGET_META[tgt]
               const isResist = tgt.startsWith('RESIST_')
-              const isMutant = tgt.includes('_') || tgt !== 'WT'
-              let label = tgt
+              let label = meta ? meta.label : tgt
+              let badgeClass = meta ? meta.badgeClass : (isResist ? 'target-pill-resist' : tgt !== 'WT' ? 'target-pill-driver' : 'target-pill-wt')
+              let indClass = meta ? meta.indClass : (isResist ? 'indicator-resist' : tgt !== 'WT' ? 'indicator-driver' : 'indicator-wt')
+              let tooltip = meta ? `${tgt}: ${meta.role}` : tgt
+
               if (isResist) {
                 const parts = tgt.split('_')
                 label = parts[2] ? `RESIST-${parts[2]}` : tgt.slice(0, 10)
+                tooltip = `Synthetic escape mutation: ${tgt}`
               }
               return (
                 <span
                   key={tgt}
-                  className={`target-pill ${isResist ? 'target-pill-resist' : isMutant ? 'target-pill-mutant' : 'target-pill-standard'}`}
-                  title={tgt}
+                  className={`target-pill ${badgeClass}`}
+                  title={tooltip}
                 >
-                  <span className={`target-indicator ${isResist ? 'indicator-resist' : isMutant ? 'indicator-mutant' : 'indicator-wt'}`} />
+                  <span className={`target-indicator ${indClass}`} />
                   {label}
                 </span>
               )
@@ -548,6 +567,7 @@ export default function App() {
         </div>
 
         <button
+          id="launch-evolution-btn"
           className="btn-primary"
           onClick={handleStart}
           disabled={evolving}
@@ -604,14 +624,35 @@ export default function App() {
                 <div className="variant-breakdown-title">Variant Affinity Profile (kcal/mol)</div>
                 <div className="variant-energy-list">
                   {Object.entries(activeMolecule.raw.dock).map(([variant, energy]) => {
+                    const meta = CLINICAL_TARGET_META[variant]
                     const isResist = variant.startsWith('RESIST_')
-                    const displayName = isResist ? (variant.split('_')[2] ? `RES-${variant.split('_')[2]}` : variant.slice(0, 10)) : variant
+                    const displayName = meta ? meta.label : (isResist ? (variant.split('_')[2] ? `RES-${variant.split('_')[2]}` : variant.slice(0, 10)) : variant)
+                    const role = meta ? meta.role : (isResist ? 'Synthetic Escape' : 'Kinase Variant')
                     const clamped = Math.min(Math.max(-energy, 0), 10)
                     const pct = (clamped / 10) * 100
                     const barColor = energy < -8 ? 'var(--success-color)' : energy < -6 ? '#f59e0b' : '#ef4444'
+                    
+                    let textColor = '#d1d5db'
+                    if (variant === 'T790M') textColor = '#fbbf24'
+                    else if (variant === 'C797S') textColor = '#f87171'
+                    else if (variant === 'L718Q' || variant === 'G724S') textColor = '#c084fc'
+                    else if (variant === 'L858R') textColor = '#38bdf8'
+                    else if (variant === 'WT') textColor = '#34d399'
+                    else if (isResist) textColor = '#fca5a5'
+
                     return (
                       <div key={variant} className="variant-energy-row">
-                        <span style={{ width: '70px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isResist ? '#fca5a5' : '#d1d5db' }} title={variant}>
+                        <span 
+                          style={{ 
+                            width: '82px', 
+                            overflow: 'hidden', 
+                            textOverflow: 'ellipsis', 
+                            whiteSpace: 'nowrap', 
+                            color: textColor,
+                            fontWeight: 500
+                          }} 
+                          title={`${variant}: ${role}`}
+                        >
                           {displayName}
                         </span>
                         <div className="variant-energy-bar-wrap">
@@ -637,20 +678,37 @@ export default function App() {
             <div className="redteam-header">
               <div className="redteam-badge">
                 <IconAlertTriangle />
-                <span>Escape Mutation Injected</span>
+                <span>Clinical Mutational Escape</span>
               </div>
               <span className="redteam-gen-tag">
-                Generation {latestAlert.generation}
+                Generation {latestAlert.generation} • {latestAlert.exon || 'Exon 20'}
               </span>
             </div>
             <div className="redteam-title">
-              Tumor Mutational Escape Detected
+              {latestAlert.mutation_name || `Target Escape: ${latestAlert.mutation_short}`}
             </div>
             <div className="redteam-desc">
-              {latestAlert.message} Previous lead compound achieved high binding affinity ({latestAlert.affinity_before.toFixed(2)} kcal/mol), triggering an adversarial escape mutation. The White Team generator is now optimizing against the expanded target ensemble.
+              {latestAlert.clinical_context && (
+                <div style={{ marginBottom: '0.4rem' }}>
+                  <strong style={{ color: '#f1f5f9' }}>Oncology Context:</strong> {latestAlert.clinical_context}
+                </div>
+              )}
+              <div style={{ marginBottom: '0.4rem' }}>
+                <strong style={{ color: '#f1f5f9' }}>Biophysical Mechanism:</strong> {latestAlert.mechanism || latestAlert.message}
+              </div>
+              {latestAlert.adaptation_guidance && (
+                <div className="redteam-guidance">
+                  <span className="redteam-guidance-badge">Generator Action:</span> {latestAlert.adaptation_guidance}
+                </div>
+              )}
             </div>
-            <div className="redteam-mutation-tag">
-              Target Injected: {latestAlert.mutation_short}
+            <div className="redteam-footer">
+              <div className="redteam-mutation-tag">
+                Ensemble Injected: {latestAlert.mutation}
+              </div>
+              <div className="redteam-trigger-tag">
+                Trigger Lead Affinity: {latestAlert.affinity_before.toFixed(2)} kcal/mol
+              </div>
             </div>
           </div>
         )}
