@@ -17,6 +17,7 @@ FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app \
     PORT=8000
 
 WORKDIR /app
@@ -37,8 +38,7 @@ COPY cli/ ./cli/
 
 # Install python dependencies
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
-    && pip install --no-cache-dir -e . \
-    && pip install --no-cache-dir rdkit fastapi "uvicorn[standard]" websockets
+    && pip install --no-cache-dir rdkit numpy scipy fastapi "uvicorn[standard]" websockets pydantic
 
 # Copy built frontend assets from Stage 1
 COPY --from=frontend-builder /app/ui/dist ./ui/dist
