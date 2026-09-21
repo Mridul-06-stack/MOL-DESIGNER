@@ -11,10 +11,11 @@
 [![React 19](https://img.shields.io/badge/Frontend-React_19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
 [![RDKit](https://img.shields.io/badge/Cheminformatics-RDKit-green?style=for-the-badge)](https://www.rdkit.org)
 [![Tests: 54/54](https://img.shields.io/badge/Tests-54%2F54_Passing-brightgreen?style=for-the-badge)](https://github.com/Mridul-06-stack/MOL-DESIGNER)
+[![RepoSentinel Score](https://img.shields.io/badge/RepoSentinel-Score_96%2F100_(A%2B)-success?style=for-the-badge&logo=shield)](REPOSENTINEL_REPORT.md)
 
 <br/>
 
-**[🌐 Experience the Live Cloud Demo](https://alchemist-ai-8lhb.onrender.com)** • **[📑 System Architecture](#-system-architecture)** • **[🧬 Clinical EGFR Benchmarks](#-clinical-benchmark-results)** • **[🚀 Quickstart](#-quickstart-guide)**
+**[🌐 Experience the Live Cloud Demo](https://alchemist-ai-8lhb.onrender.com)** • **[📑 Architecture](#-system-architecture)** • **[🛡️ RepoSentinel Audit](REPOSENTINEL_REPORT.md)** • **[🧬 Clinical Benchmarks](#-clinical-benchmark-results)** • **[🚀 Quickstart](#-quickstart-guide)**
 
 <br/>
 
