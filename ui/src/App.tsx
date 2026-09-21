@@ -187,6 +187,8 @@ function FitnessTrajectoryChart({ history }: { history: Array<{ generation: numb
   )
 }
 
+const API_BASE = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.port === '5173' ? 'http://localhost:8000' : '')
+
 export default function App() {
   const [evolving, setEvolving] = useState(false)
   const [generations, setGenerations] = useState<GenerationEvent[]>([])
@@ -224,7 +226,7 @@ export default function App() {
 
     try {
       // Stream generation events via SSE
-      const res = await fetch('http://localhost:8000/api/evolve', {
+      const res = await fetch(`${API_BASE}/api/evolve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -311,7 +313,7 @@ export default function App() {
 
   const render3D = async (smiles: string) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/molblock?smiles=${encodeURIComponent(smiles)}`)
+      const res = await fetch(`${API_BASE}/api/molblock?smiles=${encodeURIComponent(smiles)}`)
       if (!res.ok) return
       const sdf = await res.text()
       if (!sdf) return
@@ -370,7 +372,7 @@ export default function App() {
     const smi = selectedCandidate?.smiles || currentBest?.smiles
     if (!smi) return
     try {
-      const res = await fetch(`http://localhost:8000/api/molblock?smiles=${encodeURIComponent(smi)}`)
+      const res = await fetch(`${API_BASE}/api/molblock?smiles=${encodeURIComponent(smi)}`)
       if (!res.ok) return
       const sdf = await res.text()
       const blob = new Blob([sdf], { type: "chemical/x-mdl-sdfile;charset=utf-8;" })

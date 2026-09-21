@@ -141,5 +141,36 @@ pytest tests/test_scanner.py tests/test_docking.py -v
 
 ---
 
+## Cloud Deployment
+
+Alchemist is architected for **zero-CORS, unified cloud deployment** as well as decoupled microservices.
+
+### Option 1: 1-Click Render Deployment (Recommended)
+
+1. Fork or push this repository to GitHub.
+2. Sign in to [Render](https://render.com/).
+3. Click **New +** $\rightarrow$ **Blueprint** and connect your repository.
+4. Render detects `render.yaml` and deploys both the FastAPI engine and React dashboard under a single HTTPS URL (`https://alchemist.onrender.com`).
+
+### Option 2: Hugging Face Spaces (Bioinformatics & AI Hackathons)
+
+1. Create a new Space on [Hugging Face](https://huggingface.co/spaces).
+2. Choose **Docker** as the Space SDK.
+3. Push this repository or connect your GitHub repo.
+4. Hugging Face builds the multi-stage `Dockerfile` and hosts the live application directly on your Space.
+
+### Option 3: Local or Self-Hosted Docker Container
+
+```bash
+# Build the unified container
+docker build -t alchemist:latest .
+
+# Run on port 8000
+docker run -p 8000:8000 alchemist:latest
+```
+Access the complete dashboard at `http://localhost:8000`.
+
+---
+
 ## License
 MIT License. Developed for research and educational purposes in computational oncology and generative chemistry.

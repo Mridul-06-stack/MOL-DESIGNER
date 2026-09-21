@@ -169,3 +169,13 @@ async def get_molblock(smiles: str):
 async def health_check():
     return {"status": "ok", "version": "0.1.0"}
 
+
+# Serve static frontend if ui/dist exists (production/Docker unified deployment)
+import os
+from fastapi.staticfiles import StaticFiles
+
+ui_dist = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ui", "dist")
+if os.path.isdir(ui_dist):
+    app.mount("/", StaticFiles(directory=ui_dist, html=True), name="frontend")
+
+
