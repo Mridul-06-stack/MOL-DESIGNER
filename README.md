@@ -141,7 +141,9 @@ pytest tests/test_scanner.py tests/test_docking.py -v
 
 ---
 
-## Cloud Deployment
+## Live Cloud Deployment
+
+**Production Web Application**: [https://alchemist-ai-8lhb.onrender.com](https://alchemist-ai-8lhb.onrender.com)
 
 Alchemist is architected for **zero-CORS, unified cloud deployment** as well as decoupled microservices.
 
@@ -150,7 +152,7 @@ Alchemist is architected for **zero-CORS, unified cloud deployment** as well as 
 1. Fork or push this repository to GitHub.
 2. Sign in to [Render](https://render.com/).
 3. Click **New +** $\rightarrow$ **Blueprint** and connect your repository.
-4. Render detects `render.yaml` and deploys both the FastAPI engine and React dashboard under a single HTTPS URL (`https://alchemist.onrender.com`).
+4. Render detects `render.yaml` and deploys both the FastAPI engine and React dashboard under a single HTTPS URL (`https://alchemist-ai-8lhb.onrender.com`).
 
 ### Option 2: Hugging Face Spaces (Bioinformatics & AI Hackathons)
 
