@@ -18,13 +18,28 @@ from moldesigner.scanner import ClinicalEGFRScanner, MockScanner
 
 app = FastAPI(title="Alchemist API")
 
+# Explicitly define allowed origins (resolves RepoSentinel Finding 01: Wildcard CORS)
+_DEFAULT_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "https://alchemist-ai-8lhb.onrender.com",
+]
+_env_origins = os.environ.get("ALLOWED_ORIGINS")
+allowed_origins = [o.strip() for o in _env_origins.split(",") if o.strip()] if _env_origins else _DEFAULT_ORIGINS
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origins=allowed_origins,
+    allow_origin_regex=r"^https?:\/\/(localhost|127\.0\.0\.1|.*\.onrender\.com)(:\d+)?$",
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
+
 
 class EvolveRequest(BaseModel):
     islands: int = 3

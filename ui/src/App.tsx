@@ -334,7 +334,8 @@ export default function App() {
         if (typeof window !== 'undefined' && window.$3Dmol) {
           const container = document.getElementById("viewer3d")
           if (!container) return false
-          container.innerHTML = ""
+          // Use replaceChildren() to eliminate raw HTML injection surfaces (resolves RepoSentinel Finding 02)
+          container.replaceChildren()
 
           const viewer = window.$3Dmol.createViewer(container, {
             defaultcolors: window.$3Dmol.rasmolElementColors

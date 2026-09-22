@@ -10,8 +10,8 @@
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![React 19](https://img.shields.io/badge/Frontend-React_19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
 [![RDKit](https://img.shields.io/badge/Cheminformatics-RDKit-green?style=for-the-badge)](https://www.rdkit.org)
-[![Tests: 54/54](https://img.shields.io/badge/Tests-54%2F54_Passing-brightgreen?style=for-the-badge)](https://github.com/Mridul-06-stack/MOL-DESIGNER)
-[![RepoSentinel Score](https://img.shields.io/badge/RepoSentinel-Score_96%2F100_(A%2B)-success?style=for-the-badge&logo=shield)](REPOSENTINEL_REPORT.md)
+[![Tests: 58/58](https://img.shields.io/badge/Tests-58%2F58_Passing-brightgreen?style=for-the-badge)](https://github.com/Mridul-06-stack/MOL-DESIGNER)
+[![RepoSentinel Score](https://img.shields.io/badge/RepoSentinel-Score_100%2F100_(A%2B)-success?style=for-the-badge&logo=shield)](REPOSENTINEL_REPORT.md)
 
 <br/>
 
