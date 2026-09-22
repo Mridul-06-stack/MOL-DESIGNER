@@ -101,7 +101,10 @@ async def run_evolution(req: EvolveRequest):
         while True:
             # Run CPU-bound generation computation in executor thread so asyncio loop handles health checks
             event, done = await loop.run_in_executor(None, get_next, gen)
-            if done or event is None or "error" in event:
+            if done or event is None:
+                break
+            if "error" in event:
+                print(f"[ERROR] Generation step failed: {event['error']}")
                 break
 
             # Attach active targets to generation event
@@ -112,7 +115,7 @@ async def run_evolution(req: EvolveRequest):
             yield f"data: {data}\n\n"
             
             # Give event loop time to handle ping/health checks & network buffer flush
-            await asyncio.sleep(0.03)
+            await asyncio.sleep(0.02)
 
             # Check if Red-Team should scan this generation
             if req.enable_redteam and scanner and event.get("best"):
@@ -140,6 +143,8 @@ async def run_evolution(req: EvolveRequest):
                                 docker.add_target(new_variant)
                             else:
                                 docker._targets.append(new_variant)
+                            if hasattr(scorer, "clear_dock_cache"):
+                                scorer.clear_dock_cache()
 
                             mut_info = scanner.get_mutation_info(new_variant)
                             mut_name = mut_info.name if mut_info else new_variant

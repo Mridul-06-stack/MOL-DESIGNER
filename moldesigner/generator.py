@@ -163,13 +163,13 @@ def _decompose_cached(mol: Chem.Mol) -> set[str]:
     if smi in _BRICS_CACHE:
         return _BRICS_CACHE[smi]
     try:
-        frags = BRICS.BRICSDecompose(mol)
+        raw = BRICS.BRICSDecompose(mol)
     except Exception:
-        frags = set()
+        raw = set()
     if len(_BRICS_CACHE) > 500:
         _BRICS_CACHE.clear()
-    _BRICS_CACHE[smi] = frags
-    return frags
+    _BRICS_CACHE[smi] = raw
+    return raw
 
 def crossover(
     parent1: Chem.Mol, parent2: Chem.Mol, rng: random.Random,
@@ -209,7 +209,7 @@ def crossover(
 
     try:
         builder = BRICS.BRICSBuild(frag_mols, onlyCompleteMols=True, maxDepth=2)
-        candidates = list(islice(builder, 8))
+        candidates = list(islice(builder, 12))
     except Exception:
         return None
 

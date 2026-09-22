@@ -126,6 +126,15 @@ class VinaDocker:
         return results
 
 
+_ACRYLAMIDE_SMARTS = Chem.MolFromSmarts("C=CC(=O)N")
+_VINYL_SULFONE_SMARTS = Chem.MolFromSmarts("C=CS(=O)(=O)")
+_SULFONAMIDE_SMARTS = Chem.MolFromSmarts("S(=O)(=O)N")
+_MORPHOLINE_SMARTS = Chem.MolFromSmarts("N1CCOCC1")
+_PIPERAZINE_SMARTS = Chem.MolFromSmarts("N1CCNCC1")
+
+from rdkit.Chem import rdFingerprintGenerator
+_DOCK_MFP_GEN = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=2048)
+
 class RDKitScoreDocker:
     """
     Lightweight fallback docker using RDKit properties as proxy docking scores.
@@ -164,13 +173,13 @@ class RDKitScoreDocker:
                 sa_term = ((10.0 - props.get("sa", 5.0)) / 9.0) * 5.0
                 base_energy = -(qed_term + sa_term) # Range approx -10 to 0
                 
-                has_acrylamide = mol.HasSubstructMatch(Chem.MolFromSmarts("C=CC(=O)N"))
-                has_vinyl_sulfone = mol.HasSubstructMatch(Chem.MolFromSmarts("C=CS(=O)(=O)"))
+                has_acrylamide = mol.HasSubstructMatch(_ACRYLAMIDE_SMARTS)
+                has_vinyl_sulfone = mol.HasSubstructMatch(_VINYL_SULFONE_SMARTS)
                 is_covalent = has_acrylamide or has_vinyl_sulfone
                 
-                has_sulfonamide = mol.HasSubstructMatch(Chem.MolFromSmarts("S(=O)(=O)N"))
-                has_morpholine = mol.HasSubstructMatch(Chem.MolFromSmarts("N1CCOCC1"))
-                has_piperazine = mol.HasSubstructMatch(Chem.MolFromSmarts("N1CCNCC1"))
+                has_sulfonamide = mol.HasSubstructMatch(_SULFONAMIDE_SMARTS)
+                has_morpholine = mol.HasSubstructMatch(_MORPHOLINE_SMARTS)
+                has_piperazine = mol.HasSubstructMatch(_PIPERAZINE_SMARTS)
                 has_t790m_breaker = has_sulfonamide or has_morpholine or has_piperazine or props.get("mw", 500) < 410
 
                 mol_energies = {}
@@ -185,11 +194,9 @@ class RDKitScoreDocker:
                             target_smi = parts[3]
                             target_mol = Chem.MolFromSmiles(target_smi)
                             if target_mol is not None:
-                                from rdkit.Chem import rdFingerprintGenerator
                                 from rdkit import DataStructs
-                                mfp_gen = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=2048)
-                                fp_target = mfp_gen.GetFingerprint(target_mol)
-                                fp_mol = mfp_gen.GetFingerprint(mol)
+                                fp_target = _DOCK_MFP_GEN.GetFingerprint(target_mol)
+                                fp_mol = _DOCK_MFP_GEN.GetFingerprint(mol)
                                 sim = DataStructs.TanimotoSimilarity(fp_target, fp_mol)
                                 if sim > 0.6:
                                     mol_energies[tgt] = -3.0 + random.Random(seed).uniform(-0.5, 0.5)

@@ -202,6 +202,7 @@ export default function App() {
   const [historyTimeline, setHistoryTimeline] = useState<Array<{ generation: number; best: number; mean: number }>>([])
   const [is3dLoading, setIs3dLoading] = useState(false)
   const viewerRef = useRef<any>(null)
+  const lastRenderedSmilesRef = useRef<string>('')
 
   const [config, setConfig] = useState({
     generations: 20,
@@ -219,6 +220,7 @@ export default function App() {
     setLatestAlert(null)
     setTopCandidates([])
     setHistoryTimeline([])
+    lastRenderedSmilesRef.current = ''
     const initialTargets = enableRedTeam ? ["WT", "L858R"] : ["WT", "L858R", "T790M", "C797S"]
     setActiveTargets(initialTargets)
     setStatusText('Connecting to evolution engine...')
@@ -292,7 +294,10 @@ export default function App() {
                 if (data.best) {
                   setCurrentBest(data.best)
                   setSelectedCandidate(data.best)
-                  render3D(data.best.smiles)
+                  if (data.best.smiles !== lastRenderedSmilesRef.current) {
+                    lastRenderedSmilesRef.current = data.best.smiles
+                    render3D(data.best.smiles)
+                  }
                 }
               }
             } catch (e) {
@@ -741,7 +746,9 @@ export default function App() {
         <div className="stats-grid">
           <div className="stat-card glass-panel">
             <h3>Generations Completed</h3>
-            <div className="value">{generations.length} / {config.generations}</div>
+            <div className="value">
+              {generations.length === 0 ? 0 : Math.min(generations[generations.length - 1].generation, config.generations)} / {config.generations}
+            </div>
           </div>
           <div className="stat-card glass-panel">
             <h3>Best Composite Fitness</h3>
